@@ -32,6 +32,9 @@ persons_collection = None
 mtcnn = None
 resnet = None
 
+person_embeddings_cache = {}
+person_db_lookup = {}
+
 
 def init_mongodb():
     global mongo_client, persons_collection
@@ -58,10 +61,11 @@ def load_model():
         model = YOLO("yolov8n-face.pt")
     tracker = DeepSort(max_age=60, n_init=3, nms_max_overlap=0.3)
 
-    global mtcnn, resnet, person_embeddings_cache
+    global mtcnn, resnet, person_embeddings_cache, person_db_lookup
     mtcnn = MTCNN(image_size=160, margin=0, device="cpu")
     resnet = InceptionResnetV1(pretrained="vggface2").eval()
     person_embeddings_cache = {}
+    person_db_lookup = {}
 
 
 def extract_face_embedding(face_crop):
@@ -88,15 +92,16 @@ def compare_embeddings(embedding1, embedding2, threshold=0.6):
 
 
 def load_persons_to_cache():
-    global person_embeddings_cache
+    global person_embeddings_cache, person_db_lookup
     person_embeddings_cache = {}
+    person_db_lookup = {}
     if persons_collection is not None:
         try:
             for person in persons_collection.find():
                 if person.get("embedding") is not None:
-                    person_embeddings_cache[person["name"]] = np.array(
-                        person["embedding"]
-                    )
+                    name = person["name"]
+                    person_embeddings_cache[name] = np.array(person["embedding"])
+                    person_db_lookup[name] = person["_id"]
         except:
             pass
 
@@ -112,7 +117,11 @@ def find_matching_person(embedding):
         similarity = np.dot(embedding, stored_emb)
         if similarity > 0.6 and similarity > best_similarity:
             best_similarity = similarity
-            best_match = {"name": name, "embedding": stored_emb}
+            best_match = {
+                "name": name,
+                "embedding": stored_emb,
+                "_id": person_db_lookup.get(name),
+            }
 
     return best_match
 
@@ -131,6 +140,7 @@ def save_person(embedding, image_filename, person_name):
     result = persons_collection.insert_one(person_doc)
     if embedding is not None:
         person_embeddings_cache[person_name] = embedding
+        person_db_lookup[person_name] = result.inserted_id
     return result.inserted_id
 
 
@@ -143,13 +153,6 @@ def update_person_detection(person_id):
         )
     except:
         pass
-
-
-def update_cache_after_match(person_name, embedding):
-    global person_counter
-    if person_name in person_embeddings_cache:
-        return
-    person_embeddings_cache[person_name] = embedding
 
 
 def is_likely_face(x1, y1, x2, y2, frame):
@@ -186,12 +189,14 @@ def is_likely_face(x1, y1, x2, y2, frame):
 
 @app.route("/upload", methods=["POST"])
 def upload_video():
-    global person_counter, current_count
+    global person_counter, current_count, person_embeddings_cache, person_db_lookup
     if "video" not in request.files:
         return jsonify({"error": "No video uploaded"}), 400
 
     person_counter = 0
     current_count = 0
+    person_embeddings_cache = {}
+    person_db_lookup = {}
 
     video = request.files["video"]
     filename = video.filename
@@ -239,6 +244,7 @@ def detect_faces():
     cap = cv2.VideoCapture(video_path)
     results_data = []
     frame_id = 0
+    seen_face_ids = set()
 
     while True:
         ret, frame = cap.read()
@@ -270,6 +276,11 @@ def detect_faces():
                     continue
 
                 track_id = track.track_id
+
+                if track_id in seen_face_ids:
+                    continue
+                seen_face_ids.add(track_id)
+
                 ltrb = track.to_ltrb()
                 x1, y1, x2, y2 = map(int, ltrb)
                 bbox = [x1, y1, x2, y2]
@@ -361,6 +372,8 @@ def generate_video_feed(video_path, is_upload=False):
         print(f"Failed to open video: {video_path}")
         return
 
+    seen_face_ids = set()
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -390,6 +403,11 @@ def generate_video_feed(video_path, is_upload=False):
                     continue
 
                 track_id = track.track_id
+
+                if track_id in seen_face_ids:
+                    continue
+                seen_face_ids.add(track_id)
+
                 ltrb = track.to_ltrb()
                 x1, y1, x2, y2 = map(int, ltrb)
 
@@ -481,6 +499,8 @@ def generate_camera_feed():
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
+    seen_face_ids = set()
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -510,6 +530,11 @@ def generate_camera_feed():
                     continue
 
                 track_id = track.track_id
+
+                if track_id in seen_face_ids:
+                    continue
+                seen_face_ids.add(track_id)
+
                 ltrb = track.to_ltrb()
                 x1, y1, x2, y2 = map(int, ltrb)
 
@@ -619,10 +644,11 @@ def serve_face(filename):
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    global person_counter, current_count, person_embeddings_cache
+    global person_counter, current_count, person_embeddings_cache, person_db_lookup
     person_counter = 0
     current_count = 0
     person_embeddings_cache = {}
+    person_db_lookup = {}
     for filename in os.listdir(CAPTURED_FACES):
         if filename.endswith(".jpg"):
             os.remove(os.path.join(CAPTURED_FACES, filename))
