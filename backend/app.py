@@ -176,6 +176,15 @@ def upload_video():
     person_embeddings_cache = {}
     person_db_lookup = {}
 
+    for filename in os.listdir(CAPTURED_FACES):
+        if filename.endswith(".jpg"):
+            os.remove(os.path.join(CAPTURED_FACES, filename))
+    if persons_collection is not None:
+        try:
+            persons_collection.delete_many({})
+        except:
+            pass
+
     video = request.files["video"]
     filename = video.filename
     video_path = os.path.join(UPLOAD_FOLDER, filename)
