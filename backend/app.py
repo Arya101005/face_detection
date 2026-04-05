@@ -158,32 +158,10 @@ def update_person_detection(person_id):
 def is_likely_face(x1, y1, x2, y2, frame):
     width = x2 - x1
     height = y2 - y1
-
     if width <= 0 or height <= 0:
         return False
-
-    aspect_ratio = width / height
-    if aspect_ratio < 0.6 or aspect_ratio > 1.4:
+    if width < 30 or height < 30:
         return False
-
-    if width < 60 or height < 60:
-        return False
-
-    face_roi = frame[y1:y2, x1:x2]
-    if face_roi.size == 0:
-        return False
-
-    hsv = cv2.cvtColor(face_roi, cv2.COLOR_BGR2HSV)
-    skin_mask = cv2.inRange(hsv, (0, 20, 70), (20, 255, 255))
-    skin_ratio = cv2.countNonZero(skin_mask) / (width * height + 1)
-
-    if skin_ratio < 0.2:
-        return False
-
-    avg_brightness = np.mean(face_roi)
-    if avg_brightness < 40 or avg_brightness > 220:
-        return False
-
     return True
 
 
@@ -262,7 +240,7 @@ def detect_faces():
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.3:
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
@@ -390,7 +368,7 @@ def generate_video_feed(video_path, is_upload=False):
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.3:
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
@@ -517,7 +495,7 @@ def generate_camera_feed():
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.3:
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
