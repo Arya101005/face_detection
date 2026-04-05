@@ -1,0 +1,11 @@
+opencv-python
+ultralytics
+numpy
+flask
+flask-cors
+deep-sort-realtime
+pillow
+pymongo
+numpy
+scikit-learn
+facenet-pytorch

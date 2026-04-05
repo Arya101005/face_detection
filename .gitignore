@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log
+.DS_Store
+
+# React
+frontend/build/
+frontend/.env
+
+# Model files
+*.pt
+!models/yolov8n-face.pt
+
+# Uploads
+uploads/
+captured_faces/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
