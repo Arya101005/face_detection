@@ -262,7 +262,7 @@ def detect_faces():
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.75 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
@@ -390,7 +390,7 @@ def generate_video_feed(video_path, is_upload=False):
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.75 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
@@ -517,7 +517,7 @@ def generate_camera_feed():
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 confidence = float(box.conf[0])
 
-                if confidence > 0.75 and is_likely_face(x1, y1, x2, y2, frame):
+                if confidence > 0.5 and is_likely_face(x1, y1, x2, y2, frame):
                     tracks_input.append(
                         ([x1, y1, x2 - x1, y2 - y1], confidence, "face")
                     )
